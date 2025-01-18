@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Float-Format</title>
+    <meta name="author" content="Fabian Bellgardt" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+
+    <!-- CSS zum Styling der HTML-Elemente -->
+    <style>
+        h1, h2, h3 {
+            color:#3137AC; /* Überschriften in Blau */
+            font-family: 'Segoe UI';
+        }
+        h3 {
+            color:black; /* Spezielle Farbe für h3 */
+        }
+
+        body {
+            font-family: 'Segoe UI'; /* Festlegung der Standardschriftart */
+        }
+        
+        table, th, td {
+            border-collapse: collapse; /* Tabellenzellen zusammenfügen */
+        }
+        input {
+           font-family: monospace; /* Monospace-Schriftart für Eingaben */
+        }
+        
+        #Float_A,
+        #Float_B,
+        #Float_A_Exponent,
+        #Float_B_Exponent,
+        #kleinere_Exponent,
+        #Float_neu,
+        #Nicht_Normalisierter_Wert,
+        #Normalisierter_Wert,
+        #Endergebnis_Zusammengesetzt,
+        #Float_B_angeglichen,
+        #Operation,
+        #A_MantisseErweitert,
+        #B_MantisseErweitert,
+        #Endergebnis_Zusammengesetzt,
+        #CharacteristikBin,
+        #CharacteristikBerechnung,
+        #RechenOperation,
+        #VarA,
+        #VarB,
+        #Ergebnis,
+        #Strich,
+        #VorRunden,
+        #NachRunden,
+        #Aktion,
+        #RechnungDezimal{
+            font-family: monospace; /* Setzt die Schriftart auf Monospace */
+            white-space: pre;
+            color:#3137AC;
+            font-size: 17px;
+        }
+
+        #SonderfallA,
+        #SonderfallB,
+        #SonderfallOperation
+        {
+            color:red;
+            font-family: monospace;
+            white-space: pre;
+            font-size: 17px;
+
+        }
+
+    </style>
+</head>
+<body onload="Init()"> <!-- Initialisiert die Funktion Init beim Laden der Seite -->
+
+    <!-- Abschnitt für Variable A -->
+    <h2>Variable a</h2>
+    <form name="AngabeA" action="">
+        Dezimal-Format:<br>
+        <input type="text" name="Ein" value="0" onchange="calcFromD('A')"> <!-- Eingabe für Dezimalzahl -->
+        <br><br>
+        Float-Format:<br>
+        V[1]: <input type="text" size="2" maxlength="1" placeholder="1 Bit" name="Vorzeichen" value="0" onchange="updateFromVEM('A')">
+        E[8]: <input type="text" size="10" maxlength="8" placeholder="8 Bit" name="Exponent" value="00000000" onchange="updateFromVEM('A')">
+        M[23]: <input type="text" size="32" maxlength="23" placeholder="23 Bit" name="Mantisse" value="00000000000000000000000" onchange="updateFromVEM('A')">
+        <p>
+        <h4 id="errorA" style="color:red"></h4> <!-- Bereich für Fehlermeldungen -->
+    </form>
+    <hr>
+
+    <!-- Abschnitt für Variable B -->
+    <h2>Variable b</h2>
+    <form name="AngabeB" action="">
+        Dezimalzahl:<br>
+        <input type="text" name="Ein" value="0" onchange="calcFromD('B')"> <!-- Eingabe für Dezimalzahl -->
+        <br><br>
+        Float-Format:<br>
+        V[1]: <input type="text" size="2" maxlength="1" placeholder="1 Bit" name="Vorzeichen" value="0" onchange="updateFromVEM('B')">
+        E[8]: <input type="text" size="10" maxlength="8" placeholder="8 Bit" name="Exponent" value="00000000" onchange="updateFromVEM('B')">
+        M[23]: <input type="text" size="32" maxlength="23" placeholder="23 Bit" name="Mantisse" value="00000000000000000000000" onchange="updateFromVEM('B')">
+        <p>
+        <h4 id="errorB" style="color:red"></h4> <!-- Bereich für Fehlermeldungen -->
+    </form>
+    <hr>
+
+    <h2>Berechnung: a +- b</h2> <!-- Hier könnte eine zukünftige Funktion für Addition stehen -->
+
+    <!--Checkbox-->
+    Runden:<br>
+    <input type="checkbox" id="meineCheckbox">
+    <br>
+    <br>
+
+    <select id="operationSelect">
+        <option value="plus">Plus</option>
+        <option value="minus">Minus</option>
+    </select>
+
+   
+    <button type="button" onclick="berechne();">Berechnen</button><br>
+
+    <br><b>0. Sonderfall: </b><br>
+    <div id="SonderfallA"></div>
+    <div id="SonderfallB"></div>
+    <div id="SonderfallOperation"></div> 
+
+    <br><b>1. Input Werte: </b><br>
+    <div id="Float_A"></div> 
+    <div id="Float_B"></div>
+
+    <br><b>2. Vorzeichen angleichen und ggf. Operation ändern:</b><br>
+    Operation: Ein doppeltes Minus wird zu einem plus umgeschrieben: -x--y wird zu -x + y. Bei unterschiedlichen Vorzeichen wird auf Ebene der Mantissen subtrahiert.<br>
+    Vorzeichen: Bei gleichem Vorzeichen übernehmen wir nun das gemeinsame Vorzeichen. <br>
+    Bei unterschiedlichen Vorzeichen übernimmt das Ergebnis das Vorzeichen des Operanden mit dem größeren Betrag. <br>
+    <div id="RechnungDezimal"></div> 
+    <div id="Float_B_angeglichen"></div>
+    <div id="Operation"></div>
+
+    <br><b>3. Exponenten berechnen</b><br>
+    Die Exponenten werden in ihren Dezimalwert umgerechnet anschließend wird der Bias mit 127 abgezogen.
+    <div id="Float_A_Exponent"></div>
+    <div id="Float_B_Exponent"></div>
+
+    <br><b>4. Mantissen erweitern:</b></br>
+    Es wird vor beide Werte ein 1. drangehangen. Entsprechen der Vorzeichens wird ggf. noch ein minus vorgehangen.
+    <div id="A_MantisseErweitert"></div>
+    <div id="B_MantisseErweitert"></div>
+
+    <br><b>5. Mantissen anpassen</b></br>
+    Die beiden Mantissen werden angepasst auf den selben Exponenten. Hierzu wird der Punkt entsprechend verschoben.
+    <div id="kleinere_Exponent"></div>
+    <div id="Float_neu"></div>
+
+    <br><b>6. Operation durchführen</b><br>
+    Addieren: <br>
+    Addiere die Bits der beiden Zahlen in jeder Position (von rechts nach links).
+    Berücksichtige die Werte der Bits (0 oder 1):
+    <br>0 + 0 = 0
+    <br>0 + 1 = 1
+    <br>1 + 0 = 1
+    <br>1 + 1 = 0 (mit einem Carry von 1)   
+    <br>Falls bei der Addition zweier Bits ein Übertrag entsteht (1 + 1), addiere diesen Übertrag zur nächsten höheren Bit-Position.
+
+    <br>
+    <br> Subtrahiere:
+    <br>Subtrahiere die Bits der zweiten Zahl (Subtrahend) von der ersten Zahl (Minuend) in jeder Position (von rechts nach links).
+    <br>0 - 0 = 0
+    <br>1 - 0 = 1
+    <br>1 - 1 = 0
+    <br>0 - 1 = 1 (erfordert einen Borrow von der nächsthöheren Bit-Position)
+    <br>Falls das Minuenden-Bit kleiner ist als das Subtrahenden-Bit, „leihe“ einen Übertrag (Borrow) von der nächsthöheren Bit-Position:
+    <br>Der geliehene Wert ist 1, wodurch das aktuelle Bit +2 wird.
+    <br>
+    <br>
+    <div id="RechenOperation"></div>
+    <div id="VarA"></div>
+    <div id="VarB"></div>
+    <div id="Strich"></div>
+    <div id="Ergebnis"></div>
+
+    <br><b>7. Normalisieren</b><br>
+    Der Punkt muss ggf. wieder vor die erste Ziffer geschrieben werden. Dazu muss der Exponent auch angepasst werden.
+    <br><div id="Nicht_Normalisierter_Wert"></div>
+    <br><div id="Normalisierter_Wert"></div>
+    
+    <br><b>8. Runden</b>
+    <div id="VorRunden"></div>
+    <div id="NachRunden"></div>
+    <div id="Aktion"></div>
+
+    <br><b>9. Exponent in Binärzahl wandeln</b>
+    <br><div id="CharacteristikBerechnung"></div>
+    <br><div id="CharacteristikBin"></div>
+
+    <br><b>10. Ergebnis zusammengesetzt</b>
+    <div id="Endergebnis_Zusammengesetzt"></div>
+
+
+
+    <script>
+        // Funktion zur Initialisierung von Fehlermeldungs-Elementen
+        function Init() {
+            errorA = document.getElementById("errorA");
+            errorB = document.getElementById("errorB");
+        }
+
+        // Funktion, die eine Dezimalzahl in eine Binärdarstellung umwandelt
+        function DecToBin(Value, Bits) {
+            let sBin = "";
+            for (let i = Bits - 1; i >= 0; i--)
+                sBin += (Value >> i) & 1 ? "1" : "0"; // Bitweise Verschiebung und Binärdarstellung
+            return sBin;
+        }
+
+        // Funktion, die das Vorzeichen bestimmt
+        function Sign(Value) {
+            return Value < 0 ? 1 : 0; // 1 für negativ, 0 für positiv
+        }
+
+        // Funktion zur Berechnung des Exponenten gemäß IEEE-754
+        function Exp(Value) {
+            return Math.abs(Value) > 0 ? Math.floor(Math.log(Math.abs(Value)) / Math.log(2)) + 127 : 0;
+        }
+
+        // Funktion zur Berechnung der Mantisse gemäß IEEE-754
+        function Mat(Value) {
+            let v = Math.abs(Value);
+            if (v > 0 && v <= 5.877471754111438e-39) { // Spezialfall für sehr kleine Werte
+                v *= Math.pow(2, 126 + 23);
+                return Math.round(v) & 8388607; // Nur 23 Bits der Mantisse
+            } else if (v > 0) {
+                let m = Math.round((v * 8388608) / Math.pow(2, Math.floor(Math.log(v) / Math.log(2))));
+                return m & 8388607;
+            }
+            return 0; // Wenn Wert 0 ist
+        }
+
+        // Funktion, die das vollständige 32-Bit-Float-Format berechnet
+        function CalcAll(Value) {
+            let e = Exp(Value); // Berechnet den Exponenten
+            if (e < 0 || e > 255) e = 0; // Exponentenbegrenzung
+            return (Sign(Value) << 31) + (e << 23) + Mat(Value); // Kombiniert Vorzeichen, Exponent und Mantisse
+        }
+
+        // Funktion zur Rückberechnung des Dezimalwerts aus Exponent, Mantisse und Vorzeichen
+        function berechneBack(e, m, v) {
+            let value = 0;
+            if (e == 0 && m == 0) return 0; // Wenn Zahl 0 ist
+            if (e == 0 && m != 0) {
+                m /= Math.pow(2, 23); // Denormalisierter Wert
+                return m * Math.pow(2, e - 126);
+            } else if (e == 255 && m == 0) return "inf"; // Unendlich
+            else if (e == 255 && m != 0) return "NaN"; // Not a Number (NaN)
+            m = (Math.pow(2, 23) + m) / Math.pow(2, 23); // Normierte Mantisse
+            value = m * Math.pow(2, e - 127); // Berechnet den Dezimalwert
+            return v && value != "NaN" ? "-" + value : value; // Anwendbar für negative Werte
+        }
+
+        // Funktion zur Umrechnung der Dezimalzahl ins Float-Format
+        function calcFromD(variable) {
+            let form = document.forms["Angabe" + variable];
+            let error = document.getElementById("error" + variable);
+            let value = form.Ein.value.replace(",", "."); // Dezimaltrennzeichen anpassen
+            let x = 0;
+            if (["INF", "-0", "-INF", "NAN", "-NAN"].includes(value.toUpperCase())) {
+                // Sonderfälle für spezielle Werte
+            } else {
+                let e = Exp(value); // Exponent berechnen
+                e = e < 0 || e > 255 ? 0 : e; // Gültigkeitsprüfung des Exponenten
+                let m = Mat(value); // Mantisse berechnen
+                error.innerHTML = e == 0 && m != 0 ? "denormalized" : ""; // Fehlermeldung bei Denormalisierung
+                form.Vorzeichen.value = Sign(value); // Vorzeichen setzen
+                form.Exponent.value = DecToBin(e, 8); // Exponent in Binärform anzeigen
+                form.Mantisse.value = DecToBin(m, 23); // Mantisse in Binärform anzeigen
+                x = CalcAll(value); // Gesamtes 32-Bit-Float berechnen
+            }
+            form.Hex.value = DecToHex(x, 8); // Anzeige des Werts in Hexadezimalformat (DecToHex muss definiert sein)
+        }
+
+        // Funktion zur Umrechnung des Float-Formats in eine Dezimalzahl
+        function updateFromVEM(variable) {
+            let form = document.forms["Angabe" + variable];
+            let error = document.getElementById("error" + variable);
+            let v = parseInt(form.Vorzeichen.value, 10) || 0; // Vorzeichen als Ganzzahl
+            let e = parseInt(form.Exponent.value, 2) || 0; // Exponent als Binärzahl
+            let m = parseInt(form.Mantisse.value, 2) || 0; // Mantisse als Binärzahl
+            let decimalValue = berechneBack(e, m, v); // Rückumwandlung in Dezimalzahl
+            form.Ein.value = decimalValue; // Anzeige des berechneten Dezimalwerts
+            let hexValue = (v << 31) | (e << 23) | m; // Gesamtwert in 32-Bit-Float-Format
+            form.Hex.value = DecToHex(hexValue, 8); // Anzeige des Hexadezimalwerts
+            error.innerHTML = e == 0 && m != 0 ? "denormalized" : ""; // Fehlermeldung bei Denormalisierung
+        }
+        
+        function verschiebePunkt(mantisse_alt, verschiebung) {
+            // Entferne den Punkt und speichere die Position des Punktes
+            let mantisseOhnePunkt = mantisse_alt.replace(".", "");
+    
+            // Bereite die neue Mantisse vor und füge "0." als Start für die neue Mantisse
+            let mantisse_neu = "0.";
+    
+            // Füge Nullen für die Verschiebung hinzu
+            for (let i = 0; i < verschiebung - 1; i++) {
+                mantisse_neu += "0";
+            }
+    
+            // Füge die Ziffern der alten Mantisse hinzu
+            mantisse_neu += mantisseOhnePunkt;
+    
+            // Schneide die neue Mantisse auf maximal 24 Zeichen ab
+            //return mantisse_neu.substring(0, 24);
+            //ohne Abschneiden
+            return mantisse_neu;
+        }
+        
+        // Mantissen Addieren:
+        
+      
+        function addiereMantissen(mantissa1, mantissa2) {
+            // Extrahiere die Positionen des Kommas
+            const commaPos1 = mantissa1.indexOf('.');
+            const commaPos2 = mantissa2.indexOf('.');
+
+            // Falls kein Komma vorhanden ist, setze es ans Ende
+            const fixedMantissa1 = commaPos1 === -1 ? mantissa1 + '.0' : mantissa1;
+            const fixedMantissa2 = commaPos2 === -1 ? mantissa2 + '.0' : mantissa2;
+
+            // Finde die Anzahl der Stellen nach dem Komma
+            const fracLength1 = fixedMantissa1.length - commaPos1 - 1;
+            const fracLength2 = fixedMantissa2.length - commaPos2 - 1;
+            const maxFracLength = Math.max(fracLength1, fracLength2);
+
+            // Fülle die Nachkommastellen auf die gleiche Länge auf
+            const normalizedMantissa1 = fixedMantissa1.replace('.', '') + '0'.repeat(maxFracLength - fracLength1);
+            const normalizedMantissa2 = fixedMantissa2.replace('.', '') + '0'.repeat(maxFracLength - fracLength2);
+
+            // Konvertiere in Integer-Werte und addiere
+            const intMantissa1 = parseInt(normalizedMantissa1, 2);
+            const intMantissa2 = parseInt(normalizedMantissa2, 2);
+            const sum = intMantissa1 + intMantissa2;
+
+            // Summe in binär umwandeln
+            let sumBinary = sum.toString(2);
+
+            // Setze das Komma an die korrekte Position
+            const integerPartLength = Math.max(commaPos1, commaPos2);
+            const resultCommaPos = sumBinary.length - maxFracLength;
+            sumBinary = sumBinary.slice(0, resultCommaPos) + '.' + sumBinary.slice(resultCommaPos);
+
+            // Bereinigen: entferne überflüssige Nullstellen am Ende
+            sumBinary = sumBinary.replace(/\.?0+$/, '');
+            
+            return sumBinary;
+        }
+       
+        function dezimalstellenFiltern(mantisse) {
+            // Extrahiere den Teil nach dem Punkt
+            let mantissenteil = mantisse.split(".")[1] || ""; 
+            
+            // Fülle den Mantissenteil mit Nullen auf, bis er 23 Zeichen erreicht
+            if (mantissenteil.length < 23) {
+                mantissenteil = mantissenteil.padEnd(23, "0");
+            } else {
+                // Schneide den Mantissenteil auf maximal 23 Zeichen
+                mantissenteil = mantissenteil.slice(0, 23);
+            }
+            
+            return mantissenteil;
+        }
+
+        function AuswahlOperation(vorzeichenA, vorzeichenB, mantisseA, mantisseB, operationIn) {
+            let operationOut = "plus"; // Standardoperation: Addieren
+
+            // Berechnung der absoluten Werte
+            const wertA = parseFloat(mantisseA);
+            const wertB = parseFloat(mantisseB);
+
+            // Bestimmung der Operation basierend auf Vorzeichen und Wunschoperation
+            if ((vorzeichenA === "1" && vorzeichenB === "1" && operationIn === "minus") ||
+                (vorzeichenA === "1" && vorzeichenB === "0" && operationIn === "plus") ||
+                (vorzeichenA === "0" && vorzeichenB === "1" && operationIn === "plus") ||
+                (vorzeichenA === "0" && vorzeichenB === "0" && operationIn === "minus")) {
+                operationOut = "minus";
+            } // Position Minuend und Subtrahend wird später über Betrag angepasst.
+
+            return {
+                reOperation: operationOut,
+            };
+        }
+
+
+
+        function vorzeichenBestimmen(varA, varB, operation) {
+            // Parse the input values to ensure they are numbers
+            let numA = parseFloat(varA);
+            let numB = parseFloat(varB);
+
+            // Variable to store the result of the operation
+            let result;
+
+            // Perform the operation based on the input
+            if (operation === "plus") {
+                result = numA + numB;
+            } else if (operation === "minus") {
+                result = numA - numB;
+            } else {
+                throw new Error("Invalid operation. Use 'plus' or 'minus'.");
+            }
+
+            // Determine the sign bit: 1 for negative, 0 for positive or zero
+            let signBit = result < 0 ? 1 : 0;
+
+            // Return an object containing the sign bit and the result
+            return {
+                signBit: signBit,
+                result: result
+            };
+        }
+
+
+        
+        function binInDez(binaryString) {
+            // Überprüfen, ob der Eingabewert ein gültiger Binärstring ist
+            if (!/^[01]+$/.test(binaryString)) {
+                throw new Error("Ungültige Eingabe. Nur 0 und 1 sind erlaubt.");
+            }
+
+            // Berechnung des Dezimalwerts
+            let decimalValue = 0;
+            for (let i = 0; i < binaryString.length; i++) {
+                const bit = parseInt(binaryString[i], 10);
+                decimalValue = decimalValue * 2 + bit; // Linksverschiebung und Addition
+            }
+
+            return decimalValue;
+        }
+
+        function punktAnfuegen(binaryString) {
+            // Überprüfen, ob der Eingabewert ein gültiger Binärstring ist
+            if (!/^[01]+$/.test(binaryString)) {
+                throw new Error("Ungültige Eingabe. Nur 0 und 1 sind erlaubt.");
+            }
+
+            // "1." an den Anfang des Strings hinzufügen
+            const modifiedString = "1." + binaryString;
+
+            return modifiedString;
+        }
+
+        function minusAnfuegen(vorzeichen){
+            if (vorzeichen === 1) {
+                return "negativ: -";
+            } 
+            if (vorzeichen === 0) {
+                return "positiv: +";
+            }
+        }
+
+        function testEingabeSonderfall(sign, exponent, mantissa) {
+            // Konvertiere binäre Strings in Integer-Werte
+            const signBit = parseInt(sign, 2);
+            const exponentValue = parseInt(exponent, 2);
+            const mantissaValue = parseInt(mantissa, 2);
+
+            let description = " ";
+            let isSpecialCase = 0;
+
+            // Sonderfälle prüfen
+            
+            if (signBit === 0 && exponentValue === 0 && mantissaValue === 0) {
+                //description = "Sonderfall: Positive Null";
+                //isSpecialCase = 1;
+                isSpecialCase = 0;
+                
+            } else if (signBit === 1 && exponentValue === 0 && mantissaValue === 0) {
+                //description = "Sonderfall: Negative Null";
+                //isSpecialCase = 1;
+                isSpecialCase = 0;
+                
+            } else if (signBit === 0 && exponentValue === 255 && mantissaValue === 0) {
+                description = "Sonderfall: Positive Unendlichkeit";
+                isSpecialCase = 1;
+                
+            } else if (signBit === 1 && exponentValue === 255 && mantissaValue === 0) {
+                description = "Sonderfall: Negative Unendlichkeit";
+                isSpecialCase = 1;
+                
+            } else if (signBit === 0 && exponentValue === 255 && mantissaValue !== 0) {
+                description = "Sonderfall: Nicht-eine-Zahl (NaN)";
+                isSpecialCase = 1;
+                
+            } else if (signBit === 0 && exponentValue === 0 && mantissaValue === 1) {
+                description = "Sonderfall: Kleinste positive denormalisierte Zahl";
+                isSpecialCase = 1;
+                
+            }
+
+            // Rückgabe als Objekt
+            return {
+                caseDescription: description, // Beschreibung des Falls
+                isSpecialCase: isSpecialCase // 1 für Sonderfall, 0 für keinen Sonderfall
+            };
+        }
+       
+        function subMantissen(mantissa1, mantissa2) {
+            // Stelle sicher, dass mantissa1 der Minuend und mantissa2 der Subtrahend ist
+            const compare = (a, b) => {
+                // Vergleiche die beiden Mantissen als Binärzahlen
+                return parseInt(a.replace('.', ''), 2) < parseInt(b.replace('.', ''), 2);
+            };
+
+            if (compare(mantissa1, mantissa2)) {
+                [mantissa1, mantissa2] = [mantissa2, mantissa1];
+            }
+
+            // Extrahiere die Positionen des Kommas
+            const commaPos1 = mantissa1.indexOf('.') !== -1 ? mantissa1.indexOf('.') : mantissa1.length;
+            const commaPos2 = mantissa2.indexOf('.') !== -1 ? mantissa2.indexOf('.') : mantissa2.length;
+
+            // Normalisiere die Mantissen, um gleiche Anzahl Nachkommastellen zu haben
+            const fracLength1 = mantissa1.length - commaPos1 - 1;
+            const fracLength2 = mantissa2.length - commaPos2 - 1;
+            const maxFracLength = Math.max(fracLength1, fracLength2);
+
+            const normalizedMantissa1 = mantissa1.replace('.', '') + '0'.repeat(maxFracLength - fracLength1);
+            const normalizedMantissa2 = mantissa2.replace('.', '') + '0'.repeat(maxFracLength - fracLength2);
+
+            // Konvertiere die Mantissen in Integer-Werte
+            const intMantissa1 = parseInt(normalizedMantissa1, 2);
+            const intMantissa2 = parseInt(normalizedMantissa2, 2);
+
+            // Berechne die Differenz
+            const difference = intMantissa1 - intMantissa2;
+
+            // Differenz in Binär umwandeln
+            let diffBinary = Math.abs(difference).toString(2);
+
+            // Füge führende Nullen hinzu, falls nötig
+            diffBinary = diffBinary.padStart(maxFracLength + 1, '0');
+
+            // Setze das Komma an die richtige Position
+            const resultCommaPos = diffBinary.length - maxFracLength;
+            diffBinary = diffBinary.slice(0, resultCommaPos) + '.' + diffBinary.slice(resultCommaPos);
+
+            // Bereinige führende Nullen und sorge für mindestens eine Ziffer vor dem Punkt
+            diffBinary = diffBinary.replace(/^0+(?=\d)/, '');
+            if (diffBinary.startsWith('.')) {
+                diffBinary = '0' + diffBinary;
+            }
+
+            // Entferne überflüssige Nachkommastellen und stelle sicher, dass Nachkommastellen genau 26 Zeichen haben
+            const [integerPart, fractionalPart = ''] = diffBinary.split('.');
+            const roundedFractionalPart = fractionalPart.padEnd(26, '0').slice(0, 26);
+
+            return `${integerPart}.${roundedFractionalPart}`;
+        }
+
+        function ieee754Runden(value, precision) {
+            const checkbox = document.getElementById("meineCheckbox");
+
+
+            if (!checkbox.checked) {
+                return {
+                    mantisseGerundet: value,
+                    aktion: "Es wurde keine Rundung durchgeführt. Zum Runden Checkbox aktivieren."
+                };
+            }
+
+            if (!value.includes(".")) {
+                throw new Error("Ungültiges Eingabeformat. Die Mantisse muss einen Dezimalpunkt enthalten.");
+            }
+
+            let [integerPart, fractionalPart = ""] = value.split('.');
+            if (integerPart !== "1") {
+                throw new Error('Der Wert ist nicht normalisiert (führendes "1." fehlt).');
+            }
+
+            fractionalPart = fractionalPart.padEnd(precision + 3, '0');
+
+            const relevantBits = fractionalPart.slice(0, precision);
+            const guardBit = fractionalPart[precision];
+            const roundBit = fractionalPart[precision + 1];
+            const stickyBit = fractionalPart.slice(precision + 2).includes('1') ? '1' : '0';
+
+            let actionDescription = '';
+            let shouldRoundUp = false;
+
+            if (guardBit === '1') {
+                if (roundBit === '1' || stickyBit === '1') {
+                    shouldRoundUp = true;
+                    actionDescription = 'Guard Bit ist 1, und Round Bit oder Sticky Bit ist 1. Aufrunden.';
+                } else {
+                    const lastRelevantBit = parseInt(relevantBits[precision - 1], 2);
+                    if (lastRelevantBit % 2 === 1) {
+                        shouldRoundUp = true;
+                        actionDescription = 'Guard Bit ist 1, keine weiteren Bits, Ties erkannt. Aufrunden, um gerade zu machen.';
+                    } else {
+                        actionDescription = 'Guard Bit ist 1, keine weiteren Bits, Ties erkannt. Keine Rundung erforderlich (gerade).';
+                    }
+                }
+            } else {
+                actionDescription = 'Guard Bit ist 0. Keine Rundung erforderlich.';
+            }
+
+            let roundedBits = relevantBits;
+            if (shouldRoundUp) {
+                let binaryValue = BigInt('0b' + relevantBits) + BigInt(1);
+                roundedBits = binaryValue.toString(2).padStart(precision, '0');
+
+                if (roundedBits.length > precision) {
+                    roundedBits = roundedBits.slice(1);
+                    integerPart = (parseInt(integerPart) + 1).toString();
+                }
+            }
+
+            const roundedValue = `${integerPart}.${roundedBits}`;
+
+            return {
+                mantisseGerundet: roundedValue,
+                aktion: actionDescription
+            };
+        }
+
+
+        function ExponentBit(decimal, bits) {
+            // Konvertiere den Dezimalwert in einen Binärwert
+            let binary = (decimal >>> 0).toString(2);
+
+            // Padding: Füge führende Nullen hinzu, um sicherzustellen, dass es 8(32 bit Float) oder 11(64 bit Float) Bits sind
+            binary = binary.padStart(bits, '0');
+
+            // Schneide den Binärwert auf 8 Bits, falls er länger ist
+            binary = binary.slice(-bits);
+
+            return binary;
+        }
+        
+        function mantisseNormalisieren(mantissa, exponent) {
+            // Split the Mantisse in integer and decimal parts
+            let [integerPart, decimalPart] = mantissa.split(".");
+
+            decimalPart = decimalPart || ""; // Falls keine Nachkommastellen vorhanden sind, initialisiere mit leerem String
+
+            // Wenn die Mantisse mehr als eine "1" vor dem Punkt hat, verschiebe sie nach rechts
+            while (integerPart.length > 1) {
+                decimalPart = integerPart.slice(-1) + decimalPart;
+                integerPart = integerPart.slice(0, -1);
+                exponent++;
+            }
+
+            // Falls die Mantisse nur Nachkommastellen hat, verschiebe die erste "1" nach links
+            while (integerPart === "0" && decimalPart && decimalPart[0] === "0") {
+                decimalPart = decimalPart.slice(1);
+                exponent--;
+            }
+
+            // Nach dem Entfernen von führenden Nullen sollte die erste "1" erreicht werden
+            if (decimalPart && integerPart === "0") {
+                integerPart = decimalPart[0];
+                decimalPart = decimalPart.slice(1);
+                exponent--;
+            }
+
+            // Stelle sicher, dass die Nachkommastellen mindestens 26 Bits haben
+            if (decimalPart.length < 26) {
+                decimalPart = decimalPart.padEnd(26, "0"); // Fülle mit Nullen auf
+            } else {
+                decimalPart = decimalPart.slice(0, 26); // Schneide überflüssige Stellen ab
+            }
+
+            // Zusammenfügen der normalisierten Mantisse
+            const normalizedMantissa = `${integerPart}.${decimalPart}`;
+
+            return [normalizedMantissa, exponent];
+        }
+
+        
+
+        function AnzeigeReset(){
+            document.getElementById("Float_A").innerText = "";
+            document.getElementById("Float_B").innerText = "";
+            document.getElementById("RechnungDezimal").innerText = "";
+            document.getElementById("Float_A_Exponent").innerText = "";
+            document.getElementById("Float_B_Exponent").innerText = "";
+            document.getElementById("kleinere_Exponent").innerText = "";
+            document.getElementById("Float_neu").innerText = "";
+            document.getElementById("Nicht_Normalisierter_Wert").innerText = "";
+            document.getElementById("Normalisierter_Wert").innerText = "";
+            document.getElementById("Endergebnis_Zusammengesetzt").innerText = "";
+            document.getElementById("Float_B_angeglichen").innerText = "";
+            document.getElementById("Operation").innerText = "";
+            document.getElementById("A_MantisseErweitert").innerText = "";
+            document.getElementById("B_MantisseErweitert").innerText = "";
+            document.getElementById("Endergebnis_Zusammengesetzt").innerText = "";
+            document.getElementById("CharacteristikBin").innerText = "";
+            document.getElementById("CharacteristikBerechnung").innerText = "";
+            document.getElementById("RechenOperation").innerText = "";
+            document.getElementById("VarA").innerText = "";
+            document.getElementById("VarB").innerText = "";
+            document.getElementById("Ergebnis").innerText = "";
+            document.getElementById("Strich").innerText = "";
+            document.getElementById("VorRunden").innerText = "";
+            document.getElementById("NachRunden").innerText = "";
+            document.getElementById("Aktion").innerText = "";
+        }
+
+        function berechne() {
+            AnzeigeReset();
+           
+            const wunschOperation = document.getElementById("operationSelect").value;
+
+            // Werte von Variable A einlesen
+            const formA = document.forms["AngabeA"];
+            const vA_dec = parseInt(formA.Vorzeichen.value, 10);    // dec
+            const eA_dec = parseInt(formA.Exponent.value, 2);       // dec    
+            const mA_dec = parseInt(formA.Mantisse.value, 2);       // dec
+            const A_dec = berechneBack(eA_dec, mA_dec, vA_dec);    // Rückumwandlung in Dezimalwert
+
+            const vA_bin = formA.Vorzeichen.value
+            const eA_bin = formA.Exponent.value
+            const mA_bin = formA.Mantisse.value
+
+            let vA_bin_neu = 0;
+            let eA_bin_neu = 0;
+            let mA_bin_neu = 0;
+            
+            const e_b2_A = (eA_dec - 127);
+            
+            // Werte von Variable B einlesen
+            const formB = document.forms["AngabeB"];
+            const vB_dec = parseInt(formB.Vorzeichen.value, 10);
+            const eB_dec = parseInt(formB.Exponent.value, 2);
+            const mB_dec = parseInt(formB.Mantisse.value, 2);
+            const B_dec = berechneBack(eB_dec, mB_dec, vB_dec); // Rückumwandlung in Dezimalwert
+
+            const vB_bin = formB.Vorzeichen.value
+            const eB_bin = formB.Exponent.value
+            const mB_bin = formB.Mantisse.value
+
+            let vB_bin_neu = 0;
+            let eB_bin_neu = 0;
+            let mB_bin_neu = 0;
+
+            
+
+            const e_b2_B = (eB_dec - 127);
+
+            // 0. Sonderfall
+            if(testEingabeSonderfall(vA_bin, eA_bin, mA_bin).isSpecialCase === 1){
+                document.getElementById("SonderfallA").innerText = "VarA " + testEingabeSonderfall(vA_bin, eA_bin, mA_bin).caseDescription;
+            } else {
+                document.getElementById("SonderfallA").innerText = "";
+            }
+
+            if(testEingabeSonderfall(vB_bin, eB_bin, mB_bin).isSpecialCase === 1){
+                document.getElementById("SonderfallB").innerText = "VarB " + testEingabeSonderfall(vB_bin, eB_bin, mB_bin).caseDescription;
+            } else {
+                document.getElementById("SonderfallB").innerText = "";
+            }
+
+            // beide 0
+            if(A_dec === 0 && B_dec === 0){
+                document.getElementById("SonderfallOperation").innerText = "Das Endergebnis ist: 0 00000000 00000000000000000000000";
+            } else {
+                document.getElementById("SonderfallOperation").innerText = "";
+            }
+
+
+            //Prüfen auf ungültige Eingabe
+            if (((testEingabeSonderfall(vA_bin, eA_bin, mA_bin).isSpecialCase) === 1) || ((testEingabeSonderfall(vB_bin, eB_bin, mB_bin).isSpecialCase) === 1)){
+                return;
+            } 
+
+            // 1. Input Werte:
+            document.getElementById("Float_A").innerText = "Float a: " + vA_bin + " " + eA_bin + " " + mA_bin + " " + " Dezimalwert: " + A_dec;
+            document.getElementById("Float_B").innerText = "Float b: " + vB_bin + " " + eB_bin + " " + mB_bin + " " + " Dezimalwert: " + B_dec;
+
+            // 2. Vorzeichen bestimmen und ggf. Operation ändern:
+            let vA_bin_angeglichen = vA_bin;
+            let eA_bin_angeglichen = eA_bin;
+            let mA_bin_angeglichen = mA_bin;
+
+            let vB_bin_angeglichen = vB_bin;
+            let eB_bin_angeglichen = eB_bin;
+            let mB_bin_angeglichen = mB_bin;
+
+            
+            let vorzeichenBinEndergebnis = vorzeichenBestimmen(A_dec, B_dec, wunschOperation).signBit;
+            let decEndergebnis = vorzeichenBestimmen(A_dec, B_dec, wunschOperation).result;
+
+            if(vA_bin_angeglichen !== vB_bin_angeglichen){
+                vB_bin_angeglichen = vA_bin_angeglichen
+            }
+            document.getElementById("RechnungDezimal").innerText = A_dec + " " + wunschOperation + " " + B_dec + " = " + decEndergebnis;
+            let realOperation = AuswahlOperation(vA_bin, vB_bin, mA_dec, mB_dec, wunschOperation).reOperation;
+            
+            document.getElementById("Operation").innerText = "Es wird folgende Operation durchgeführt: " + AuswahlOperation(vA_bin, vB_bin, mA_dec, mB_dec, wunschOperation).reOperation;
+
+            // 3. Exponenten berechnen:
+            let A_ExponentNeu = eA_dec - 127;
+            let B_ExponentNeu = eB_dec - 127;
+            document.getElementById("Float_A_Exponent").innerText = "Der Exponent von A lautet: " + eA_bin_angeglichen + " Dies ist in Dezimal: " + eA_dec + " Von diesem Exponent wird nun 127 abgezogen: " + A_ExponentNeu;
+            document.getElementById("Float_B_Exponent").innerText = "Der Exponent von B lautet: " + eB_bin_angeglichen + " Dies ist in Dezimal: " + eB_dec + " Von diesem Exponent wird nun 127 abgezogen: " + B_ExponentNeu;
+
+            // 4. Mantissen erweitern:
+            let mA_bin_erw = punktAnfuegen(mA_bin_angeglichen);
+            let mB_bin_erw = punktAnfuegen(mB_bin_angeglichen);
+            document.getElementById("A_MantisseErweitert").innerText = mA_bin_erw + " * 2^" + A_ExponentNeu;
+            document.getElementById("B_MantisseErweitert").innerText = mB_bin_erw + " * 2^" + B_ExponentNeu;
+        
+            // 5. Exponenten angleichen
+            if (A_ExponentNeu < B_ExponentNeu) { // A kleiner
+                differenz = (B_ExponentNeu - A_ExponentNeu);
+                // Werte aktualisieren
+                mA_bin_erw_neu = verschiebePunkt(mA_bin_erw, differenz); // Mantisse anpassen.
+                mB_bin_erw_neu = mB_bin_erw;
+                e_b2_A_neu = B_ExponentNeu;    //Exponent anpassen.
+                e_b2_B_neu = B_ExponentNeu;
+
+                document.getElementById("kleinere_Exponent").innerText = "Der Exponent von a ist " + A_ExponentNeu + " und damit kleiner als der Exponent von b mit " + B_ExponentNeu + ". a muss daher auf den Exponenten von b angepasst werden. Die Verschiebung des Punktes beträgt " + B_ExponentNeu + " - " + A_ExponentNeu + " = " + differenz + " stellen nach links.";
+                document.getElementById("Float_neu").innerText = "Exponentendarstellung a neu: " + mA_bin_erw_neu + " * 2^" + e_b2_A_neu;
+                
+            } else if (B_ExponentNeu < A_ExponentNeu){ // B kleiner
+                differenz = (A_ExponentNeu - B_ExponentNeu);
+                // Werte aktualisieren
+                mA_bin_erw_neu = mA_bin_erw;
+                mB_bin_erw_neu = verschiebePunkt(mB_bin_erw, differenz);
+                e_b2_A_neu = A_ExponentNeu;
+                e_b2_B_neu = A_ExponentNeu;
+
+                document.getElementById("kleinere_Exponent").innerText = "Der Exponent von b ist " + B_ExponentNeu + " und damit kleiner als der Exponent von a mit " + A_ExponentNeu + ". b muss daher auf den Exponenten von a angepasst werden. Die Verschiebung des Punktes beträgt " + A_ExponentNeu + " - " + B_ExponentNeu + " = " + differenz + " stellen nach links.";
+                document.getElementById("Float_neu").innerText = "Exponentendarstellung b neu: " + mB_bin_erw_neu + " * 2^" + e_b2_B_neu;
+
+            } else if (B_ExponentNeu == A_ExponentNeu){ // beide gleich
+                differenz = 0;
+                // Werte aktualisieren
+                mA_bin_erw_neu = mA_bin_erw;
+                mB_bin_erw_neu = mB_bin_erw;
+                e_b2_A_neu = A_ExponentNeu;
+                e_b2_B_neu = B_ExponentNeu;
+
+                document.getElementById("kleinere_Exponent").innerText = "Der Exponent von a ist " + A_ExponentNeu + " und der Exponent von b ist " + B_ExponentNeu + ". Die Exponenten sind damit bereits gleich groß.";
+                document.getElementById("Float_neu").innerText = "Es muss keine Angleichung stattfinden";
+            }  
+            
+            // 6. Operation durchführen
+            let mantisseErgebnis = 0.0;
+            if (realOperation === "plus") {
+                mantisseErgebnis = addiereMantissen(mA_bin_erw_neu, mB_bin_erw_neu)
+                document.getElementById("VarA").innerText = mA_bin_erw_neu;
+                document.getElementById("VarB").innerText = mB_bin_erw_neu;
+            } else if (realOperation === "minus"){
+                    if (Math.abs(A_dec) > Math.abs(B_dec)){
+                        mantisseErgebnis = subMantissen(mA_bin_erw_neu, mB_bin_erw_neu)
+                        document.getElementById("VarA").innerText = mA_bin_erw_neu;
+                        document.getElementById("VarB").innerText = mB_bin_erw_neu;
+                    } else {
+                        mantisseErgebnis = subMantissen(mB_bin_erw_neu, mA_bin_erw_neu)
+                        document.getElementById("VarB").innerText = mA_bin_erw_neu;
+                        document.getElementById("VarA").innerText = mB_bin_erw_neu;
+                    }
+            }
+            document.getElementById("Strich").innerText = "___________________";
+            document.getElementById("RechenOperation").innerText = "Wie in Abschnitt 2. beschrieben wird nun " + realOperation + " gerechnet." + "\nBei der Subtraktion wird der betragsmäßig kleinere Wert von dem größeren Wert abgezogen.";
+            document.getElementById("Ergebnis").innerText = mantisseErgebnis;
+
+            if (mantisseErgebnis === "0.00000000000000000000000000"){
+                document.getElementById("Endergebnis_Zusammengesetzt").innerText = "Endergebnis: 0 00000000 00000000000000000000000";
+                document.getElementById("Normalisierter_Wert").innerText = "Es wird nicht normalisiert.";
+                document.getElementById("Aktion").innerText = "Es wird nicht gerundet.";
+                document.getElementById("CharacteristikBin").innerText = "Exponent Ergebnis: 00000000";
+                return;
+            }
+            // raus: mantisse: mantisseErgebnis
+            // nun erst normalisieren!
+
+            // 7. Normalisieren
+            var exp_plus_bias = 0;
+            
+            exp_plus_bias = e_b2_A_neu; // + 127 ???
+            const [normalizedMantissa, adjustedExponent] = mantisseNormalisieren(mantisseErgebnis, exp_plus_bias);
+            document.getElementById("Nicht_Normalisierter_Wert").innerText = "Wert vor Normalisierung: " + mantisseErgebnis + " * 2^" + exp_plus_bias;
+            document.getElementById("Normalisierter_Wert").innerText = "Wert nach der Normalisierung: " + normalizedMantissa + " * 2^" + adjustedExponent;
+            // raus mit normalizedMantisse, adjustedExponent
+        
+            // 8. Runden
+            let mantisseGerundet = ieee754Runden(normalizedMantissa, 23).mantisseGerundet;
+            document.getElementById("VorRunden").innerText = "Vorher:  " + normalizedMantissa + " * 2 ^" + adjustedExponent;
+            document.getElementById("NachRunden").innerText = "Nachher: " + mantisseGerundet + " * 2 ^" + adjustedExponent;
+            document.getElementById("Aktion").innerText = ieee754Runden(normalizedMantissa, 23).aktion;
+          
+            // 9. Exponent in Binärzahl wandeln
+            let exponentDec = adjustedExponent + 127;
+            let exponentBin = ExponentBit(exponentDec, 8);
+            document.getElementById("CharacteristikBerechnung").innerText = "Berechnung Dezimal: " + adjustedExponent + " + 127 = " + exponentDec;
+            document.getElementById("CharacteristikBin").innerText = "Ergebnis Binär:     " + exponentBin;
+             
+            // 10. Ergebnis zusammengesetzt
+            var ergebnis_mantisse_bin = dezimalstellenFiltern(normalizedMantissa);
+            var ergebnis_dec = berechneBack(parseInt(exponentBin, 2), parseInt(ergebnis_mantisse_bin, 2), parseInt(0, 10)) // braucht dec Werte!
+            document.getElementById("Endergebnis_Zusammengesetzt").innerText = "Float: "+ vorzeichenBinEndergebnis + " " + exponentBin + " " + ergebnis_mantisse_bin + " Dezimal: " + minusAnfuegen(vorzeichenBinEndergebnis) + " " + ergebnis_dec;
+        }
+    </script>
+</body>
+</html>

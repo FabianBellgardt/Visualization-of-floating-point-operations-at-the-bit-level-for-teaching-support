@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Float_Dezimal_Konverter</title>
+    <meta name="author" content="Fabian Bellgardt" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+
+    <!-- CSS zum Styling der HTML-Elemente -->
+    <style>
+        h1, h2, h3 {
+            color:#3137AC; /* Überschriften in Blau */
+            font-family: 'Segoe UI';
+        }
+        h3 {
+            color:black; /* Spezielle Farbe für h3 */
+        }
+
+        body {
+            font-family: 'Segoe UI'; /* Festlegung der Standardschriftart */
+        }
+        
+        table, th, td {
+            border-collapse: collapse; /* Tabellenzellen zusammenfügen */
+        }
+        input {
+           font-family: monospace; /* Monospace-Schriftart für Eingaben */
+        }
+        
+        #Exponent,
+        #ExponentMinusBias,
+        #VorneEins,
+        #VorneEinsAngepasst,
+        #RechenwegMantisse,
+        #ErgebnisMantisse,
+        #Vorzeichen,
+        #Ergebnis
+        {   
+            color:#3137AC; /* Überschriften in Blau */ /* Setzt die Schriftart auf Monospace */
+            font-family: monospace;
+            white-space: pre;
+            font-size: 17px;
+        }
+
+        #Sonderfall
+        {
+            color:red;
+            font-family: monospace;
+            white-space: pre;
+            font-size: 17px;
+
+        }
+
+    </style>
+</head>
+<body onload="Init()"> <!-- Initialisiert die Funktion Init beim Laden der Seite -->
+
+    <!-- Abschnitt für Variable A -->
+    <h1>Float zu Dezimal Konverter</h1>
+    <form name="AngabeA" action="">
+        Dezimal-Format:<br>
+        <input type="text" name="Ein" value="0" onchange="calcFromD('A')"> <!-- Eingabe für Dezimalzahl -->
+        <br><br>
+        Float-Format:<br>
+        V[1]: <input type="text" size="2" maxlength="1" placeholder="1 Bit" name="Vorzeichen" value="0" onchange="updateFromVEM('A')">
+        E[8]: <input type="text" size="10" maxlength="8" placeholder="8 Bit" name="Exponent" value="00000000" onchange="updateFromVEM('A')">
+        M[23]: <input type="text" size="32" maxlength="23" placeholder="23 Bit" name="Mantisse" value="00000000000000000000000" onchange="updateFromVEM('A')">
+        <p>
+        <h4 id="errorA" style="color:red"></h4> <!-- Bereich für Fehlermeldungen -->
+        <button type="button" onclick="berechne()">in Dezimalzahl konvertieren</button><br>
+    </form>
+    <hr>
+
+    
+    <h2>Rechenweg: Float -> Dezimal</h2> <!-- Hier könnte eine zukünftige Funktion für Addition stehen -->
+    
+    <!-- Darstellung inputwerte -->
+    <br><b>0. Sonderfall: </b><br>
+    <div id="Sonderfall"></div>
+
+    <br><b>1. Exponent ermitteln: </b><br>
+    Der Dezimale Exponent wird aus den 8 bit des binären Exponenten berechnet. Anschließend wird der Bias abgezogen. Dies sind bei 32 bit -127.<br>
+    Exponent - 127 = tatsächlicher Exponent <br>
+    <div id="Exponent"></div> 
+    <div id="ExponentMinusBias"></div>
+
+    <br><b>2. Mantisse denormalisieren </b><br>
+    Die Mantisse wird mit "1." erweitert. Anschließend wird das Komma entsprechend des zuvor berechneten Exponenten verschoben.
+    <div id="VorneEins"></div> 
+    <div id="VorneEinsAngepasst"></div>
+
+    <br><b>3. Mantisse in Dezimal umwandeln</b></b><br>
+    Nun wird die Mantisse in einen Dezimalwert umgerechnet. <br>
+    <div id="RechenwegMantisse"></div>
+    <div id="ErgebnisMantisse"></div>
+
+    <br><b>4. Vorzeichen ermitteln </b><br>
+    Ist das Vorzeichenbit eine 0, so ist das Ergebnis positiv. Bei einer 1 ist es negativ.
+    <div id="Vorzeichen"></div>
+
+    <br><b>5. Ergebnis</b>
+    <div id="Ergebnis"></div>
+
+
+    <script>
+        // Funktion, die eine Dezimalzahl in eine Binärdarstellung umwandelt
+        function DecToBin(Value, Bits) {
+            let sBin = "";
+            for (let i = Bits - 1; i >= 0; i--)
+                sBin += (Value >> i) & 1 ? "1" : "0"; // Bitweise Verschiebung und Binärdarstellung
+            return sBin;
+        }
+
+        // Funktion, die das Vorzeichen bestimmt
+        function Sign(Value) {
+            return Value < 0 ? 1 : 0; // 1 für negativ, 0 für positiv
+        }
+
+        // Funktion zur Berechnung des Exponenten gemäß IEEE-754
+        function Exp(Value) {
+            return Math.abs(Value) > 0 ? Math.floor(Math.log(Math.abs(Value)) / Math.log(2)) + 127 : 0;
+        }
+
+        // Funktion zur Berechnung der Mantisse gemäß IEEE-754
+        function Mat(Value) {
+            let v = Math.abs(Value);
+            if (v > 0 && v <= 5.877471754111438e-39) { // Spezialfall für sehr kleine Werte
+                v *= Math.pow(2, 126 + 23);
+                return Math.round(v) & 8388607; // Nur 23 Bits der Mantisse
+            } else if (v > 0) {
+                let m = Math.round((v * 8388608) / Math.pow(2, Math.floor(Math.log(v) / Math.log(2))));
+                return m & 8388607;
+            }
+            return 0; // Wenn Wert 0 ist
+        }
+
+        // Funktion, die das vollständige 32-Bit-Float-Format berechnet
+        function CalcAll(Value) {
+            let e = Exp(Value); // Berechnet den Exponenten
+            if (e < 0 || e > 255) e = 0; // Exponentenbegrenzung
+            return (Sign(Value) << 31) + (e << 23) + Mat(Value); // Kombiniert Vorzeichen, Exponent und Mantisse
+        }
+
+        // Funktion zur Rückberechnung des Dezimalwerts aus Exponent, Mantisse und Vorzeichen
+        function CalculateBack(e, m, v) {
+            let value = 0;
+            if (e == 0 && m == 0) return 0; // Wenn Zahl 0 ist
+            if (e == 0 && m != 0) {
+                m /= Math.pow(2, 23); // Denormalisierter Wert
+                return m * Math.pow(2, e - 126);
+            } else if (e == 255 && m == 0) return "inf"; // Unendlich
+            else if (e == 255 && m != 0) return "NaN"; // Not a Number (NaN)
+            m = (Math.pow(2, 23) + m) / Math.pow(2, 23); // Normierte Mantisse
+            value = m * Math.pow(2, e - 127); // Berechnet den Dezimalwert
+            return v && value != "NaN" ? "-" + value : value; // Anwendbar für negative Werte
+        }
+
+        // Funktion zur Umrechnung der Dezimalzahl ins Float-Format
+        function calcFromD(variable) {
+            let form = document.forms["Angabe" + variable];
+            let error = document.getElementById("error" + variable);
+            let value = form.Ein.value.replace(",", "."); // Dezimaltrennzeichen anpassen
+            let x = 0;
+            if (["INF", "-0", "-INF", "NAN", "-NAN"].includes(value.toUpperCase())) {
+                // Sonderfälle für spezielle Werte
+            } else {
+                let e = Exp(value); // Exponent berechnen
+                e = e < 0 || e > 255 ? 0 : e; // Gültigkeitsprüfung des Exponenten
+                let m = Mat(value); // Mantisse berechnen
+                error.innerHTML = e == 0 && m != 0 ? "denormalized" : ""; // Fehlermeldung bei Denormalisierung
+                form.Vorzeichen.value = Sign(value); // Vorzeichen setzen
+                form.Exponent.value = DecToBin(e, 8); // Exponent in Binärform anzeigen
+                form.Mantisse.value = DecToBin(m, 23); // Mantisse in Binärform anzeigen
+                x = CalcAll(value); // Gesamtes 32-Bit-Float berechnen
+            }
+    }
+
+        // Funktion zur Umrechnung des Float-Formats in eine Dezimalzahl
+        function updateFromVEM(variable) {
+            let form = document.forms["Angabe" + variable];
+            let error = document.getElementById("error" + variable);
+            let v = parseInt(form.Vorzeichen.value, 10) || 0; // Vorzeichen als Ganzzahl
+            let e = parseInt(form.Exponent.value, 2) || 0; // Exponent als Binärzahl
+            let m = parseInt(form.Mantisse.value, 2) || 0; // Mantisse als Binärzahl
+            let decimalValue = CalculateBack(e, m, v); // Rückumwandlung in Dezimalzahl
+            form.Ein.value = decimalValue; // Anzeige des berechneten Dezimalwerts
+            let hexValue = (v << 31) | (e << 23) | m; // Gesamtwert in 32-Bit-Float-Format
+            error.innerHTML = e == 0 && m != 0 ? "denormalized" : ""; // Fehlermeldung bei Denormalisierung
+        }
+
+       
+        // Rechenweg Funktionen
+
+        // 0. Sonderfall prüfen
+        function testSonderfall(sign, exponent, mantissa) {
+            // Konvertiere binäre Strings in Integer-Werte
+            const signBit = parseInt(sign, 2);
+            const exponentValue = parseInt(exponent, 2);
+            const mantissaValue = parseInt(mantissa, 2);
+
+            let description = " ";
+            let isSpecialCase = 0;
+
+            // Sonderfälle prüfen
+            if (signBit === 0 && exponentValue === 0 && mantissaValue === 0) {
+                description = "Sonderfall: Positive Null";
+                isSpecialCase = 1;
+            } else if (signBit === 1 && exponentValue === 0 && mantissaValue === 0) {
+                description = "Sonderfall: Negative Null";
+                isSpecialCase = 1;
+            } else if (signBit === 0 && exponentValue === 255 && mantissaValue === 0) {
+                description = "Sonderfall: Positive Unendlichkeit";
+                isSpecialCase = 1;
+            } else if (signBit === 1 && exponentValue === 255 && mantissaValue === 0) {
+                description = "Sonderfall: Negative Unendlichkeit";
+                isSpecialCase = 1;
+            } else if (signBit === 0 && exponentValue === 255 && mantissaValue !== 0) {
+                description = "Sonderfall: Nicht-eine-Zahl (NaN)";
+                isSpecialCase = 1;
+            } else if (signBit === 0 && exponentValue === 0 && mantissaValue === 1) {
+                description = "Sonderfall: Kleinste positive denormalisierte Zahl";
+                isSpecialCase = 1;
+            }
+
+            // Rückgabe als Objekt
+            return {
+                caseDescription: description, // Beschreibung des Falls
+                isSpecialCase: isSpecialCase // 1 für Sonderfall, 0 für keinen Sonderfall
+            };
+        }
+
+
+        // 1. Exponent ermitteln
+        function berechneExponent(binaryExponent) {
+            // Überprüfen, ob die Eingabe 8 Zeichen lang und binär ist
+            if (!/^[01]{8}$/.test(binaryExponent)) {
+                throw new Error("Der Exponent muss ein 8-Bit-binärer String sein.");
+            }
+
+            // Den Binärwert in eine Dezimalzahl umwandeln
+            const decimalValue = parseInt(binaryExponent, 2);
+
+            // Der Bias für 8-Bit-Exponenten ist 127
+            const bias = 127;
+
+            // Den bereinigten Dezimalwert berechnen
+            const adjustedValue = decimalValue - bias;
+
+            // Die Ergebnisse zurückgeben
+            return {
+                decimalValue: decimalValue,
+                adjustedValue: adjustedValue
+            };
+        }
+
+        // 2. Mantisse denormalisieren
+        function denormMantisse(mantissa, exponent) {
+            // 1. "1." vor die Mantisse anhängen
+            const addOneValue = `1.${mantissa}`;
+            
+            // 2. Den Punkt entsprechend des tatsächlichen Exponenten verschieben
+            let addOneAdjustedValue;
+            if (exponent >= 0) {
+                // Positiver Exponent: Punkt nach rechts verschieben
+                const fullNumber = `1${mantissa}`;
+                if (exponent < mantissa.length) {
+                    addOneAdjustedValue = fullNumber.slice(0, exponent + 1) + '.' + fullNumber.slice(exponent + 1);
+                } else {
+                    addOneAdjustedValue = fullNumber + '0'.repeat(exponent - mantissa.length);
+                }
+            } else {
+                // Negativer Exponent: Punkt nach links verschieben
+                const zeroPadding = '0'.repeat(Math.abs(exponent) - 1);
+                addOneAdjustedValue = `0.${zeroPadding}1${mantissa}`;
+            }
+            
+            // Rückgabe im gewünschten Format
+            return {
+                addOne: addOneValue,
+                addOneAdjusted: addOneAdjustedValue
+            };
+        }
+
+
+        // 3. Mantisse in Dezimal wandeln
+        function binInDez(binaryString) {
+            // Split the Zahl in Vorkomma- und Nachkommabereich
+            const [integerPart, fractionalPart] = binaryString.split(".");
+
+            let steps = [];
+            let result = 0;
+
+            // Vorkommateil in Dezimal umwandeln
+            for (let i = 0; i < integerPart.length; i++) {
+                if (integerPart[i] === "1") {
+                    const power = integerPart.length - 1 - i; // Exponent
+                    const value = Math.pow(2, power);
+                    steps.push(`2^${power}`);
+                    result += value;
+                }
+            }
+
+            // Nachkommateil in Dezimal umwandeln
+            if (fractionalPart) {
+                for (let i = 0; i < fractionalPart.length; i++) {
+                    if (fractionalPart[i] === "1") {
+                        const power = -(i + 1); // Exponent für Nachkommastellen
+                        const value = Math.pow(2, power);
+                        steps.push(`2^${power}`);
+                        result += value;
+                    }
+                }
+            }
+
+            // Rechenweg und Ergebnis formatieren
+            const calculation = steps.join(" + ");
+            const intermediateValues = steps.map(step => eval(step)).join(" + ");
+            const calculationWithValues = `${calculation} = ${intermediateValues}`;
+
+            // Rückgabe des Rechenwegs und Ergebnisses
+            return {
+                calculation: calculationWithValues,
+                result: result
+            };
+        }
+        
+        // 4. Vorzeichen ermitteln
+        function vorzeichenErkennen(vorzeichen_bit){
+            if (vorzeichen_bit === "1") 
+                return "Das Vorzeichenbit ist eine 1, daher ist die Zahl negativ.";
+            if (vorzeichen_bit === "0")
+                return "Das Vorzeichenbit ist eine 0, daher ist die Zahl positiv.";
+        }
+
+        // 5. Ergebnis anpassen
+        function anpassenErgebnis(floatValue, bit) {
+            // Prüfen, ob das übergebene Bit negativ ist
+            if (bit === "1") {
+                // Wenn negativ, Floatwert ebenfalls negativ machen
+                return -Math.abs(floatValue);
+            } else {
+                // Wenn positiv, Floatwert positiv halten
+                return Math.abs(floatValue);
+            }
+        }
+                
+        function resetAnzeige(){
+            document.getElementById("Exponent").innerText = "";
+            document.getElementById("ExponentMinusBias").innerText = "";
+            document.getElementById("VorneEins").innerText = "";
+            document.getElementById("VorneEinsAngepasst").innerText = "";
+            document.getElementById("RechenwegMantisse").innerText = "";
+            document.getElementById("ErgebnisMantisse").innerText = "";
+            document.getElementById("Vorzeichen").innerText = "";
+            document.getElementById("Ergebnis").innerText = "";
+            //document.getElementById("Sonderfall").innerText = "";
+        }
+       
+
+        function berechne() {
+            // Werte von Variable A einlesen
+            const formA = document.forms["AngabeA"];
+            const vA_dec = parseInt(formA.Vorzeichen.value, 10);    // dec
+            const eA_dec = parseInt(formA.Exponent.value, 2);       // dec    
+            const mA_dec = parseInt(formA.Mantisse.value, 2);       // dec
+            const A_dec = CalculateBack(eA_dec, mA_dec, vA_dec);    // Rückumwandlung in Dezimalwert
+
+            const vA_bin = formA.Vorzeichen.value
+            const eA_bin = formA.Exponent.value
+            const mA_bin = formA.Mantisse.value
+            
+            // 0.Sonderfall
+            document.getElementById("Sonderfall").innerText = testSonderfall(vA_bin, eA_bin, mA_bin).caseDescription;
+            if ((testSonderfall(vA_bin, eA_bin, mA_bin).isSpecialCase) === 1){
+                resetAnzeige();
+                return;
+            } 
+
+            // 1. Input
+            const exponentResult = berechneExponent(eA_bin);
+            document.getElementById("Exponent").innerText = "Der Exponent hat den Binärwert: " + eA_bin + "\nDies ist Dezimal: " + exponentResult.decimalValue;
+            document.getElementById("ExponentMinusBias").innerText = "\nTatsächlicher Exponent:\nExponent " + exponentResult.decimalValue + " - Bias 127: " + exponentResult.adjustedValue;
+        
+            // 2. Mantisse denormalisieren
+            let mantisseMitEins = denormMantisse(mA_bin, exponentResult.adjustedValue).addOne;
+            let mantisseDenormalisiert = denormMantisse(mA_bin, exponentResult.adjustedValue).addOneAdjusted;
+            document.getElementById("VorneEins").innerText = "Normalisieren: An die Mantisse vorne 1. anfügen: " + mantisseMitEins;
+            document.getElementById("VorneEinsAngepasst").innerText = "Denormalisieren: Das Komma wird nun entsprechend des Exponenten verschoben. \nDer Exponent ist " + exponentResult.adjustedValue + "\nDie denormalisierte Mantisse ist nun: " + mantisseDenormalisiert;
+            
+            // 3. Mantisse in Dezimal umwandeln
+            let mantisse_dezimal = binInDez(mantisseDenormalisiert).result;
+            document.getElementById("RechenwegMantisse").innerText = binInDez(mantisseDenormalisiert).calculation;
+            document.getElementById("ErgebnisMantisse").innerText = mantisse_dezimal;
+            
+            // 4. Vorzeichen erkennen
+            document.getElementById("Vorzeichen").innerText = vorzeichenErkennen(vA_bin);
+            
+            // 5. Ergebnis
+            document.getElementById("Ergebnis").innerText = anpassenErgebnis(mantisse_dezimal, vA_bin);
+            
+        }
+    </script>
+</body>
+</html>

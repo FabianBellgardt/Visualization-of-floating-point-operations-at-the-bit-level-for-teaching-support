@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>dezimal zu IEEE-754 converter</title>
+    <meta name="author" content="Fabian Bellgardt" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+
+    <!-- CSS zum Styling der HTML-Elemente -->
+    <style>
+        h1, h2, h3 {
+            color:#3137AC; /* Überschriften in Blau */
+            font-family: 'Segoe UI';
+        }
+
+        body {
+            font-family: 'Segoe UI'; /* Festlegung der Standardschriftart */
+        }
+        
+        table, th, td {
+            border-collapse: collapse; /* Tabellenzellen zusammenfügen */
+        }
+        
+        input {
+           font-family: monospace; /* Monospace-Schriftart für Eingaben */
+        }
+
+        #Vorzeichenbit,
+        #VorkommastelleRechenweg,
+        #VorkommastelleErgebnis,
+        #NachkommastelleRechenweg,
+        #NachkommastelleErgebnis,
+        #Zusammengesetzt,
+        #Normalisiert,
+        #Gerundet,
+        #Aktion,
+        #VorRunden,
+        #CharacteristikBerechnung,
+        #CharacteristikBin,
+        #Vorzeichen,
+        #Exponent,
+        #Mantisse,
+        #Float
+        {   
+            color:#3137AC; /* Überschriften in Blau */ /* Setzt die Schriftart auf Monospace */
+            font-family: monospace;
+            white-space: pre;
+            font-size: 17px;
+        }
+
+        #Sonderfall
+        {
+            color:red;
+            font-family: monospace;
+            white-space: pre;
+            font-size: 17px;
+        }
+
+    </style>
+</head>
+<body onload="Init()"> <!-- Initialisiert die Funktion Init beim Laden der Seite -->
+    <h1>Dezimal zu Float Konverter</h1>
+
+    <!-- Abschnitt für Variable A -->
+    <form name="inputFeld" action="">
+        Dezimal-Format:<br>
+        <input type="text" name="Ein" value="0"> <!-- Eingabe für Dezimalzahl -->
+        <br>
+        <br>
+
+        <!--Checkbox-->
+        Runden:<br>
+        <input type="checkbox" id="meineCheckbox">
+        <br>
+        <br>
+
+        <!-- Radio -->
+        Float Typ: <br>
+        <label for="option1">32 Bit</label>
+        <input type="radio" id="option1" name="choice" value="32 Bit" checked><br>
+        <label for="option2">64 Bit</label>
+        <input type="radio" id="option2" name="choice" value="64 Bit">
+        <br>
+        <br>
+
+        <!--Button-->
+        <button type="button" onclick="waehleFloatTyp()">in Float konvertieren</button>
+    </form>
+    <hr>
+
+
+    <h2>Rechenweg: Dezimal -> Float</h2> 
+    <br><b>0. Sonderfall</b><br>
+    <div id="Sonderfall"></div></div>
+    <!-- Darstellung inputwerte -->
+    <br><b>1. Vorzeichenbit ermitteln</b><br>
+    Wenn die Zahl negativ ist, so ist das Vorzeichenbit eine 1. Ansonsten eine 0. 
+    <div id="Vorzeichenbit"></div></div> 
+    
+
+    <br><b>2. Vorkommastellen vom 10er-System ins 2er-System wandeln</b><br>
+    Die Dezimal-Vorkommastellen so lange durch zwei teilen, bis das Ergebnis kleiner als 1 ist. Hat das Ergebnis einen Rest, so wird eine 1 notiert, ansonsten eine 0. Danach die Stellen von unten nach oben zusammenfügen.  
+    <div id="VorkommastelleRechenweg"></div></div>
+    <div id="VorkommastelleErgebnis"></div></div>
+
+    <br><b>3. Nachkommastellen vom 10er-System ins 2er-System wandeln</b></b><br>
+    Die Dezimal-Nachkommastelle mit zwei multiplizieren. Wenn das Ergebnis > 1 ist, wird eine 1 notiert. Ansonsten eine 0. Der Algorithmus kann abgebrochen werden wenn sich die Ergebnisse wiederholen. Am Ende die Stellen von oben nach unten zusammenfügen.
+    <div id="NachkommastelleRechenweg"></div></div>
+    <div id="NachkommastelleErgebnis"></div></div>
+
+    <br><b>4. Vorkommastellen und Nachkommastellen zusammenfügen</b>
+    <div id="Zusammengesetzt"></div></div>
+
+    <br><b>5. Komma verschieben (Normalisieren) und auf Stellenzahl anpassen.</b><br>
+    Das Komma hinter die erste Zahl verschieben und entsprechend den exponenten anpassen. Wird das Komma nach links verschoben, so steigt der Exponent um die Anzahl der stellen. Wird das Komma nach rechts verschoben, so sinkt der Exponent. 
+    <br>
+    <br>
+    Bei 32 bit:
+    <br>
+    Ohne Runden: 23 bit. 
+    <br>
+    Mit Runden: 26 bit.
+    <br>
+    <br>
+    <br>
+    Bei 64 bit:
+    <br>
+    Ohne Runden: 52 bit
+    <br>
+    Mit Runden: 55 bit
+
+    <br>
+    <div id="Normalisiert"></div></div>
+
+    <br><b>6. Runden</b><br>
+    Die Rundung nach IEEE 754 erfolgt in mehreren Schritten, um die Mantisse an die Zielpräzision (z. B. 23 Bits bei Single Precision) anzupassen. Nach der Normalisierung wird der Wert auf die erlaubte Anzahl von Bits begrenzt. Dabei prüft man die Bits, die über die Zielpräzision hinausgehen: das Guard Bit (erstes Bit nach der Mantisse), das Round Bit (darauf folgendes Bit) und das Sticky Bit (alle weiteren Bits, ob mindestens eines 1 ist). Standardmäßig wird die Rundungsmethode "Runden auf den nächsten Nachbarn mit Vorliebe zur geraden Zahl" angewandt. Ist das Guard Bit 0, wird abgeschnitten, und die Mantisse bleibt unverändert. Ist das Guard Bit 1, wird aufgerundet, wenn das Round Bit oder Sticky Bit 1 ist. Liegt ein "Ties"-Fall (genau in der Mitte) vor, wird so gerundet, dass das letzte Bit der Mantisse gerade bleibt. Falls die Rundung einen Überlauf in der Mantisse erzeugt, wird der Exponent entsprechend erhöht.
+    <div id="VorRunden"></div></div>
+    <div id="Gerundet"></div></div>
+    <div id="Aktion"></div></div>
+
+    <br><b>7. Exponent berechnen</b><br>
+    Die Charakteristik wird berechnet aus Exponent und Bias. Bei 32 bit beträgt der Bias 127. <br>
+    Exponent + Bias = Charakteristik
+    <div id="CharacteristikBerechnung"></div></div>
+    <div id="CharacteristikBin"></div></div>
+
+
+    <br><b>8. Gleitkommazahl zusammensetzen</b>
+    <br>
+    Float-Format:
+    <br>
+    <div id="Vorzeichen"></div></div>
+    <div id="Exponent"></div></div>
+    <div id="Mantisse"></div></div>
+    <div id="Float"></div></div>
+
+    <script>
+        function waehleFloatTyp(){
+            const radios = document.getElementsByName("choice");
+            let selectedValue = null;
+
+            // Überprüfen, welcher Radio-Button aktiv ist
+            for (const radio of radios) {
+                if (radio.checked) {
+                    selectedValue = radio.value;
+                    break;
+                }
+            }
+
+            // Weiterleiten an die entsprechenden Funktionen
+            if (selectedValue === "32 Bit") {
+                berechne(); // Funktion A ausführen
+            } else if (selectedValue === "64 Bit") {
+                berechne_64bit(); // Funktion B ausführen
+            }
+        }
+
+
+        function VorkommaDecToBin(number) {
+            const integerPart = Math.floor(Math.abs(number)); // Ganzzahlwert des Betrags
+            let steps = ""; // String zur Speicherung des Rechenwegs
+            let value = integerPart;
+            let binary = ""; // String für den Binärwert
+
+            // Berechnung des Binärwerts mit Rechenweg
+            while (value > 0) {
+                let remainder = value % 2; // Rest berechnen
+                let quotient = Math.floor(value / 2); // Quotient berechnen
+                steps += `${value} : 2 = ${quotient} R ${remainder}\n`; // Rechenschritt hinzufügen
+                binary = remainder + binary; // Binärwert aufbauen
+                value = quotient; // Wert aktualisieren
+            }
+
+            // Wenn der Binärwert leer ist (Vorkommastelle ist 0), setze ihn auf "0"
+            if (binary === "") {
+                binary = "0";
+                steps = "0 : 2 = 0 R 0\n"; // Rechenweg für 0 hinzufügen
+            }
+
+            // Rechenweg und Binärwert getrennt zurückgeben
+            return {
+                rechenweg: steps,      // Rechenweg als String
+                binaerwert: binary     // Binärwert als String
+            };
+        }
+    
+
+        function NachkommaDecToBin(number, bits) {
+            const fractionalPart = Math.abs(number) - Math.floor(Math.abs(number)); // Extrahiere den Nachkommastellenanteil
+            let steps = ""; // String zur Speicherung des Rechenwegs
+            let binary = ""; // String für den Binärwert
+            let seenValues = new Map(); // Speichert bereits gesehene Nachkommastellen zur Erkennung von Wiederholungen
+            let value = fractionalPart;
+            const precision = 10; // Dezimalstellen zur Rundung
+            const targetBits = bits; // Mindestanzahl an Binärstellen
+
+            while (value > 0 && binary.length < targetBits) {
+                // Runde den Wert auf die gewünschte Präzision, um Ungenauigkeiten zu vermeiden
+                value = Math.round(value * Math.pow(10, precision)) / Math.pow(10, precision);
+
+                // Speichere den aktuellen Wert, um Wiederholungen zu erkennen
+                seenValues.set(value, binary.length);
+
+                value *= 2; // Nachkommastelle mit 2 multiplizieren
+                let bit = Math.floor(value); // Ganzzahliger Teil wird zum Binärbit
+
+                // Entferne unnötige Nullen mit `.toString()`
+                const originalValue = (value / 2).toString();
+                const doubledValue = value.toString();
+
+                steps += `${originalValue} * 2 = ${doubledValue} → ${bit}\n`; // Rechenschritt hinzufügen
+                binary += bit; // Binärbit hinzufügen
+                value -= bit; // Ganzzahliger Teil entfernen
+            }
+
+            // Fülle mit Nullen auf, falls weniger als 26 Bits berechnet wurden
+            while (binary.length < targetBits) {
+                binary += "0";
+            }
+
+            // Rückgabe des Rechenwegs und des Binärwerts
+            return {
+                rechenweg: steps,
+                binaerwert: "0." + binary
+            };
+        }
+
+        function zusammensetzen(vorkomma, nachkomma) {
+            // Entferne den führenden "0."-Teil von nachkomma, falls vorhanden
+            if (nachkomma.startsWith("0.")) {
+                nachkomma = nachkomma.slice(2);
+            }
+
+            // Kombiniere vorkomma und nachkomma zu einer Dezimalzahl als String
+            const result = `${vorkomma}.${nachkomma}`;
+
+            // Gib das Ergebnis zurück
+            return result;
+        }
+
+
+        function normalisiereZusammengesetzt(value, bits) {
+            // Teile die Eingabe in den Vorkomma- und Nachkommabereich
+            let [integerPart, fractionalPart] = value.split('.');
+
+            // Initialisiere den Exponenten
+            let exponent = 0;
+
+            // Falls es keinen Vorkommateil gibt, setze ihn auf "0"
+            if (!integerPart) integerPart = "0";
+
+            // Falls es keinen Nachkommateil gibt, setze ihn auf ""
+            if (!fractionalPart) fractionalPart = "";
+
+            // Checkbox-Referenz
+            const checkbox = document.getElementById("meineCheckbox");
+
+            // Bestimme die gewünschte Länge der Nachkommastellen
+            if ((checkbox.checked && bits == 52)){
+                targetLength = 55; // +3 für Rundung
+            }
+            if ((!checkbox.checked && bits == 52)){
+                targetLength = 52; // +3 für Rundung
+            }
+            if ((checkbox.checked && bits == 23)){
+                targetLength = 26; // +3 für Rundung
+            }
+            if ((!checkbox.checked && bits == 23)){
+                targetLength = 23; // +3 für Rundung
+            }
+
+
+            // Wenn der Vorkommateil nicht 0 ist, verschiebe das Komma basierend auf der Länge des Vorkommateils
+            if (parseInt(integerPart, 2) !== 0) {
+                // Normalisierung durch Verschiebung des Kommas
+                exponent = integerPart.length - 1;
+                const normalizedValue = integerPart[0] + '.' + integerPart.slice(1) + fractionalPart;
+
+                // Fülle mit Nullen auf, falls nötig
+                const normalizedFraction = normalizedValue.split('.')[1].padEnd(targetLength, '0').slice(0, targetLength);
+
+                return {
+                    normalisiert: `${integerPart[0]}.${normalizedFraction}`,
+                    exponent: exponent
+                };
+            } else {
+                // Falls der Vorkommateil 0 ist, verschiebe das Komma nach rechts, bis eine 1 gefunden wird
+                let combined = fractionalPart;
+                let shift = 0;
+
+                while (combined[shift] === '0' && shift < combined.length) {
+                    shift++;
+                }
+
+                // Verschiebe den Exponenten entsprechend der Anzahl der führenden 0-Bits
+                exponent = -shift - 1;
+
+                // Normalisiere den Wert
+                const normalizedFraction = combined.slice(shift + 1).padEnd(targetLength, '0').slice(0, targetLength);
+                
+
+                return {
+                    normalisiert: `1.${normalizedFraction}`,
+                    exponent: exponent
+                };
+            }
+        }
+
+
+        function vorzeichenAnalyse(value){
+            if(value < 0){
+                return Number(1);
+            } if (value >= 0) {
+                return Number(0);
+            } else {
+                return Number(2);
+            }
+        }
+
+        function ieee754Runden(value, precision) {
+            // Checkbox-Referenz
+            const checkbox = document.getElementById("meineCheckbox");
+
+            if (checkbox.checked) {
+                // Entferne das führende "1." für die Mantisse
+                const [integerPart, fractionalPart] = value.split('.');
+                if (integerPart !== '1') {
+                    throw new Error('Der Wert ist nicht normalisiert (führendes "1." fehlt).');
+                }
+
+                // Zielpräzision (z. B. 23 Bits für Single Precision)
+                const targetBits = precision;
+
+                // Zerlege die Mantisse in die relevanten und überschüssigen Bits
+                const relevantBits = fractionalPart.slice(0, targetBits); // Bits innerhalb der Präzision
+                const guardBit = fractionalPart[targetBits] || '0'; // Bit direkt nach den relevanten Bits
+                const roundBit = fractionalPart[targetBits + 1] || '0'; // Nächstes Bit
+                const stickyBit = fractionalPart.slice(targetBits + 2).includes('1') ? '1' : '0'; // Rest-Bits
+
+                // Beschreibung der Aktion
+                let actionDescription = '';
+
+                // Entscheidungslogik
+                let shouldRoundUp = false;
+                if (guardBit === '1') {
+                    if (roundBit === '1' || stickyBit === '1') {
+                        shouldRoundUp = true;
+                        actionDescription = 'Guard Bit ist 1, und Round Bit oder Sticky Bit ist 1. Aufrunden.';
+                    } else {
+                        const lastRelevantBit = parseInt(relevantBits[targetBits - 1], 2);
+                        if (lastRelevantBit % 2 === 1) {
+                            shouldRoundUp = true;
+                            actionDescription = 'Guard Bit ist 1, keine weiteren Bits, Ties erkannt. Aufrunden, um gerade zu machen.';
+                        } else {
+                            actionDescription = 'Guard Bit ist 1, keine weiteren Bits, Ties erkannt. Keine Rundung erforderlich (gerade).';
+                        }
+                    }
+                } else {
+                    actionDescription = 'Guard Bit ist 0. Keine Rundung erforderlich.';
+                }
+
+                // Wende Rundung an
+                let roundedBits = relevantBits;
+                if (shouldRoundUp) {
+                    let binaryValue = BigInt('0b' + relevantBits) + BigInt(1);
+                    roundedBits = binaryValue.toString(2).padStart(targetBits, '0');
+
+                    if (roundedBits.length > targetBits) {
+                        roundedBits = roundedBits.slice(1);
+                    }
+                }
+
+                const roundedValue = `1.${roundedBits}`;
+
+                return {
+                    gerundeterWert: roundedValue,
+                    aktion: actionDescription
+                };
+            } else {
+                return {
+                    gerundeterWert: value,
+                    aktion: "Es wurde keine Rundung durchgeführt. Zum Runden Checkbox aktivieren."
+                };
+            }
+        }
+
+        function ExponentBit(decimal, bits) {
+            // Konvertiere den Dezimalwert in einen Binärwert
+            let binary = (decimal >>> 0).toString(2);
+
+            // Padding: Füge führende Nullen hinzu, um sicherzustellen, dass es 8(32 bit Float) oder 11(64 bit Float) Bits sind
+            binary = binary.padStart(bits, '0');
+
+            // Schneide den Binärwert auf 8 Bits, falls er länger ist
+            binary = binary.slice(-bits);
+
+            return binary;
+        }
+
+        function testSonderfall(dezimalwert) {
+            // Konvertiere binäre Strings in Integer-Wert
+            let description = " ";
+            let isSpecialCase = 0;
+
+            if (Object.is(dezimalwert, 0)) {
+                description = "Sonderfall Positive Null: 0 00000000 00000000000000000000000";
+                isSpecialCase = 1;
+            } else if (Object.is(dezimalwert, -0)) {
+                description = "Sonderfall: Negative Null: 1 00000000 00000000000000000000000";
+                isSpecialCase = 1;
+            } else {
+                description = " ";
+                isSpecialCase = 0;
+            }   
+            // Rückgabe als Objekt
+            return {
+                caseDescription: description, // Beschreibung des Falls
+                isSpecialCase: isSpecialCase // 1 für Sonderfall, 0 für keinen Sonderfall
+            };
+        }
+            
+
+
+        //Bei Knopfdruck berechnen:
+        function berechne() {
+            AnzeigeReset();
+            // Dezimalwert einlesen
+            let decimalInput = parseFloat(document.forms["inputFeld"].elements["Ein"].value);
+
+            // 0. Sonderfall
+            document.getElementById("Sonderfall").innerText = testSonderfall(decimalInput).caseDescription;
+            if ((testSonderfall(decimalInput).isSpecialCase) === 1){
+                return;
+            } 
+
+            
+
+
+            // 1. Vorzeichenbit berechnen
+            let vorzeichen = vorzeichenAnalyse(decimalInput);
+            document.getElementById("Vorzeichenbit").innerText = "Vorzeichenbit: " + vorzeichen;
+
+            // 2. Vorkommastelle vom 10er-System ins 2er System wandeln
+            let vorkommastellenRechenweg = VorkommaDecToBin(decimalInput).rechenweg;
+            let vorkommastellenErgebnis = VorkommaDecToBin(decimalInput).binaerwert;
+            document.getElementById("VorkommastelleRechenweg").innerText = "Rechenweg: \n" + vorkommastellenRechenweg;
+            document.getElementById("VorkommastelleErgebnis").innerText = "Vorkommastellen: \n" + vorkommastellenErgebnis;
+
+            // 3. Nachkommastellen vom 10er-System ins 2er System wandeln
+            let nachkommastellenRechenweg = NachkommaDecToBin(decimalInput, 26).rechenweg;
+            let nachkommastellenErgebnis = NachkommaDecToBin(decimalInput, 26).binaerwert;
+            document.getElementById("NachkommastelleRechenweg").innerText = "Rechenweg: \n" + nachkommastellenRechenweg;
+            document.getElementById("NachkommastelleErgebnis").innerText = "Nachkommastellen: \n" + nachkommastellenErgebnis;
+        
+            // 4. Werte Zusammensetzen
+            let zusammengesetzterWert = zusammensetzen(vorkommastellenErgebnis, nachkommastellenErgebnis)
+            document.getElementById("Zusammengesetzt").innerText = zusammengesetzterWert + " * 2 ^0";
+            
+            // 5. Komma verschieben
+            let normalisierterWert = normalisiereZusammengesetzt(zusammengesetzterWert, 23).normalisiert;
+            let normalisierterExponent = normalisiereZusammengesetzt(zusammengesetzterWert, 23).exponent;
+            document.getElementById("Normalisiert").innerText = normalisierterWert + " * 2 ^" + normalisierterExponent;
+            
+            // 6. Runden
+            let gerundeterWert = ieee754Runden(normalisierterWert, 23).gerundeterWert;
+            document.getElementById("VorRunden").innerText = "Vorher:  " + normalisierterWert + " * 2 ^" + normalisierterExponent;
+            document.getElementById("Gerundet").innerText = "Nachher: " + gerundeterWert + " * 2 ^" + normalisierterExponent;
+            document.getElementById("Aktion").innerText = ieee754Runden(normalisierterWert, 23).aktion;
+            
+            // 7. Exponent berechnen
+            let exponentDec = normalisierterExponent + 127;
+            let exponentBin = ExponentBit(exponentDec, 8);
+            document.getElementById("CharacteristikBerechnung").innerText = "Berechnung Dezimal: " + normalisierterExponent + " + 127 = " + exponentDec;
+            document.getElementById("CharacteristikBin").innerText = "Ergebnis Binär:     " + exponentBin;
+            
+            // 8. Gleitkommazahl zusammensetzen
+            document.getElementById("Vorzeichen").innerText = "1 bit Vorzeichen: " + vorzeichen;
+            document.getElementById("Exponent").innerText = "8 bit Exponent:   " + exponentBin;
+            document.getElementById("Mantisse").innerText = "23 bit Mantisse:  " + gerundeterWert.slice(2);
+            document.getElementById("Float").innerText = "Float zusammengesetzt: " + vorzeichen + " " + exponentBin + " " + gerundeterWert.slice(2);
+
+        }
+
+        function berechne_64bit(){
+            AnzeigeReset();
+            // Dezimalwert einlesen
+            let decimalInput = parseFloat(document.forms["inputFeld"].elements["Ein"].value);
+
+            // 0. Auf Sonderfall prüfen
+            if (Object.is(decimalInput, 0)) {
+                document.getElementById("Sonderfall").innerText = "Sonderfall 0:\nFloat: 0 00000000000 0000000000000000000000000000000000000000000000000000";
+            } else if (Object.is(decimalInput, -0)) {
+                document.getElementById("Sonderfall").innerText = "Sonderfall -0:\nFloat: 1 00000000000 0000000000000000000000000000000000000000000000000000";
+            } else {
+                document.getElementById("Sonderfall").innerText = "";
+            }
+
+            // 1. Vorzeichenbit berechnen
+            let vorzeichen = vorzeichenAnalyse(decimalInput);
+            document.getElementById("Vorzeichenbit").innerText = "Vorzeichenbit: " + vorzeichen;
+            
+            // 2. Vorkommastelle vom 10er-System ins 2er System wandeln
+            let vorkommastellenRechenweg = VorkommaDecToBin(decimalInput).rechenweg;
+            let vorkommastellenErgebnis = VorkommaDecToBin(decimalInput).binaerwert;
+            document.getElementById("VorkommastelleRechenweg").innerText = "Rechenweg: \n" + vorkommastellenRechenweg;
+            document.getElementById("VorkommastelleErgebnis").innerText = "Vorkommastellen: \n" + vorkommastellenErgebnis;
+
+            // 3. Nachkommastellen vom 10er-System ins 2er System wandeln
+            let nachkommastellenRechenweg = NachkommaDecToBin(decimalInput, 55).rechenweg;
+            let nachkommastellenErgebnis = NachkommaDecToBin(decimalInput, 55).binaerwert;
+            document.getElementById("NachkommastelleRechenweg").innerText = "Rechenweg: \n" + nachkommastellenRechenweg;
+            document.getElementById("NachkommastelleErgebnis").innerText = "Nachkommastellen: \n" + nachkommastellenErgebnis;
+            
+            // 4. Werte Zusammensetzen
+            let zusammengesetzterWert = zusammensetzen(vorkommastellenErgebnis, nachkommastellenErgebnis)
+            document.getElementById("Zusammengesetzt").innerText = zusammengesetzterWert + " * 2 ^0";
+            
+            // 5. Komma verschieben
+            let normalisierterWert = normalisiereZusammengesetzt(zusammengesetzterWert, 52).normalisiert;
+            let normalisierterExponent = normalisiereZusammengesetzt(zusammengesetzterWert, 52).exponent;
+            document.getElementById("Normalisiert").innerText = normalisierterWert + " * 2 ^" + normalisierterExponent;
+            
+            // 6. Runden
+            let gerundeterWert = ieee754Runden(normalisierterWert, 52).gerundeterWert;
+            document.getElementById("VorRunden").innerText = "Vorher:  " + normalisierterWert + " * 2 ^" + normalisierterExponent;
+            document.getElementById("Gerundet").innerText = "Nachher: " + gerundeterWert + " * 2 ^" + normalisierterExponent;
+            document.getElementById("Aktion").innerText = ieee754Runden(normalisierterWert, 52).aktion;
+
+            // 7. Exponent berechnen
+            let exponentDec = normalisierterExponent + 1023;
+            let exponentBin = ExponentBit(exponentDec, 11);
+            document.getElementById("CharacteristikBerechnung").innerText = "Berechnung Dezimal: " + normalisierterExponent + " + 127 = " + exponentDec;
+            document.getElementById("CharacteristikBin").innerText = "Ergebnis Binär:     " + exponentBin;
+            
+            // 8. Gleitkommazahl zusammensetzen
+            document.getElementById("Vorzeichen").innerText = "1 bit Vorzeichen: " + vorzeichen;
+            document.getElementById("Exponent").innerText = "11 bit Exponent:  " + exponentBin;
+            document.getElementById("Mantisse").innerText = "52 bit Mantisse:  " + gerundeterWert.slice(2);
+            document.getElementById("Float").innerText = "Float zusammengesetzt: " + vorzeichen + " " + exponentBin + " " + gerundeterWert.slice(2);
+
+
+        }
+
+        function AnzeigeReset(){
+            document.getElementById("Vorzeichenbit").innerText = "";
+            // 2. Vorkommastelle vom 10er-System ins 2er System wandeln
+            document.getElementById("VorkommastelleRechenweg").innerText = "";
+            document.getElementById("VorkommastelleErgebnis").innerText = "";
+            // 3. Nachkommastellen vom 10er-System ins 2er System wandeln
+            document.getElementById("NachkommastelleRechenweg").innerText = "";
+            document.getElementById("NachkommastelleErgebnis").innerText = "";
+            // 4. Werte Zusammensetzen
+            document.getElementById("Zusammengesetzt").innerText = "";
+            // 5. Komma verschieben
+            document.getElementById("Normalisiert").innerText = "";
+            // 6. Runden
+            document.getElementById("VorRunden").innerText = "";
+            document.getElementById("Gerundet").innerText = "";
+            document.getElementById("Aktion").innerText = "";
+            // 7. Exponent berechnen
+            document.getElementById("CharacteristikBerechnung").innerText = ""; 
+            document.getElementById("CharacteristikBin").innerText = "";
+            // 8. Gleitkommazahl zusammensetzen
+            document.getElementById("Vorzeichen").innerText = "";
+            document.getElementById("Exponent").innerText = "";
+            document.getElementById("Mantisse").innerText = "";
+            document.getElementById("Float").innerText = "";
+        }
+
+    </script>
+</body>
+</html>
